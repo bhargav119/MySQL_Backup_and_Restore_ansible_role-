@@ -1,0 +1,9 @@
+---
+s3_bucket: "my-mysql-backup-bucket"
+s3_object: "mydatabase.sql.tar.gz"
+backup_dir: "/tmp"
+mysql_user: "root"
+mysql_password: "Asdf@1234"
+mysql_database: "school_db"
+aws_access_key: "AKIA3FLD5EULWIJEPFX3"
+aws_secret_key: "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"

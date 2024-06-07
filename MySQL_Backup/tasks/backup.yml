@@ -1,0 +1,41 @@
+# roles/mysql_backup/tasks/main.yml
+
+---
+- name: Create backup directory
+  file:
+    path: "{{ backup_dir }}"
+    state: directory
+
+- name: Dump MySQL database
+  shell: mysqldump -u {{ mysql_user }} -p"{{ mysql_password }}" school_db > "{{ backup_file }}"
+
+- name: Check if the SQL backup file exists
+  stat:
+    path: "{{ backup_file }}"
+  register: backup_file_status
+
+- name: Debug SQL backup file existence
+  debug:
+    msg: "SQL backup file exists: {{ backup_file_status.stat.exists }}"
+
+- name: Archive the backup file
+  shell: tar -czf "{{ tar_file }}" -C "{{ backup_dir }}" "mydatabase.sql"
+  when: backup_file_status.stat.exists
+
+- name: Check if the tar.gz file exists
+  stat:
+    path: "{{ tar_file }}"
+  register: tar_file_status
+
+- name: Debug tar.gz file existence
+  debug:
+    msg: "tar.gz file exists: {{ tar_file_status.stat.exists }}"
+
+- name: Upload to S3 using AWS CLI from remote host
+  shell: aws s3 cp "{{ tar_file }}" "s3://{{ s3_bucket }}/{{ s3_object }}" --region "{{ aws_region }}"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "{{ aws_region }}"
+  when: tar_file_status.stat.exists
+

@@ -1,0 +1,8 @@
+# main.yml
+
+---
+- name: Backup MySQL database and upload to S3
+  hosts: mysql_servers
+  roles:
+    - MySQL
+

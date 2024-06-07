@@ -1,0 +1,14 @@
+# roles/MySQL/vars/main.yml
+
+---
+backup_dir: /tmp/mysql_backup
+backup_file: "{{ backup_dir }}/mydatabase.sql"
+tar_file: "{{ backup_dir }}/mydatabase.sql.tar.gz"
+aws_region: us-east-1
+mysql_user: root
+mysql_password: 'Asdf@1234'
+aws_access_key: 'AKIA3FLD5EULWIJEPFX3'
+aws_secret_key: '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'
+s3_bucket: my-mysql-backup-bucket
+s3_object: mydatabase.sql.tar.gz
+mysql_database: "school_db"

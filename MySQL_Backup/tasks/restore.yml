@@ -1,0 +1,30 @@
+- name: Ensure backup directory exists
+  file:
+    path: "{{ backup_dir }}"
+    state: directory
+
+- name: Download backup file from S3
+  aws_s3:
+    bucket: "{{ s3_bucket }}"
+    object: "{{ s3_object }}"
+    dest: "{{ backup_dir }}/{{ s3_object }}"
+    mode: get
+  delegate_to: localhost
+
+- name: Ensure MySQL service is running
+  service:
+    name: mysql
+    state: started
+
+- name: Create database if it doesn't exist
+  mysql_db:
+    name: "{{ mysql_database }}"
+    state: present
+    login_user: "{{ mysql_user }}"
+    login_password: "{{ mysql_password }}"
+
+- name: Restore the database from the backup file
+  shell: mysql -u {{ mysql_user }} -p{{ mysql_password }} {{ mysql_database }} < {{ backup_dir }}/{{ s3_object }}
+  args:
+    executable: /bin/bash
+

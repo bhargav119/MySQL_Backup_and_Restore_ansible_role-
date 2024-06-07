@@ -1,0 +1,94 @@
+---
+- name: Ensure backup directory exists
+  file:
+    path: "{{ backup_dir }}"
+    state: directory
+
+- name: Check if AWS CLI is installed
+  stat:
+    path: /usr/local/bin/aws
+  register: aws_cli_check
+
+- name: Install AWS CLI and unzip
+  become: yes
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - unzip
+    - curl
+
+- name: Download backup file from S3 with retries
+  become: yes
+  command: aws s3 cp s3://{{ s3_bucket }}/{{ s3_object }} {{ backup_dir }}/
+  retries: 3
+  delay: 10
+  delegate_to: 192.168.1.174
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ aws_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_key }}"
+    AWS_DEFAULT_REGION: "us-east-1"
+
+- name: Verify the downloaded file exists
+  stat:
+    path: "{{ backup_dir }}/{{ s3_object }}"
+  register: backup_file_check
+
+- name: Debug backup file presence
+  debug:
+    msg: "Backup file exists: {{ backup_file_check.stat.exists }}"
+
+- name: Install MySQL server
+  become: yes
+  apt:
+    name: mysql-server
+    state: present
+
+- name: Install Python MySQL dependencies
+  become: yes
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - python3-pymysql
+    - python3-mysqldb
+
+- name: Create .my.cnf file with root credentials
+  become: yes
+  copy:
+    dest: /root/.my.cnf
+    content: |
+      [client]
+      user=root
+      password={{ mysql_password }}
+
+- name: Set MySQL root password and authentication method
+  become: yes
+  shell: |
+    mysql -u root -p'{{ mysql_password }}' -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{ mysql_password }}'; FLUSH PRIVILEGES;"
+
+- name: Ensure MySQL service is running
+  become: yes
+  service:
+    name: mysql
+    state: started
+
+- name: Create database if it doesn't exist
+  mysql_db:
+    name: "{{ mysql_database }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_password }}"
+
+- name: Extract the backup file
+  shell: tar -xvzf {{ backup_dir }}/{{ s3_object }} -C {{ backup_dir }}
+  args:
+    executable: /bin/bash
+  when: backup_file_check.stat.exists
+
+- name: Restore the database from the backup file
+  shell: "mysql -u root -p'{{ mysql_password }}' {{ mysql_database }} < {{ backup_dir }}/mydatabase.sql"
+  args:
+    executable: /bin/bash
+  when: backup_file_check.stat.exists
+
